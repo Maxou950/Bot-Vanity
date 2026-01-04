@@ -119,12 +119,15 @@ async def kmk(interaction: discord.Interaction):
     # embed.set_thumbnail(url=marry["image"])  # ❌ retiré volontairement
     embed.set_footer(text="🔪 en dernier")
 
-    # ✅ Après defer() -> followup
-    await interaction.followup.send(embed=embed)
+    # ✅ IMPORTANT : récupérer le message envoyé par followup pour ajouter les réactions dessus
+    sent_msg = await interaction.followup.send(embed=embed, wait=True)
 
-    msg = await interaction.original_response()
-    for emoji in REACTIONS:
-        await msg.add_reaction(emoji)
+    # ✅ Ajout des réactions (avec logs si Discord refuse)
+    try:
+        for emoji in REACTIONS:
+            await sent_msg.add_reaction(emoji)
+    except Exception as e:
+        print("REACTION ERROR:", repr(e))
 
 
 @bot.event
