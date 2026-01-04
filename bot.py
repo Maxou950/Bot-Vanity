@@ -27,9 +27,6 @@ class MyBot(commands.Bot):
 bot = MyBot()
 
 def get_character():
-    """
-    Retourne un dict {name, anime, image} ou None si l'API échoue / est bloquée.
-    """
     try:
         r = requests.get(
             API_URL,
@@ -37,28 +34,46 @@ def get_character():
             headers={"User-Agent": "DiscordBot KMK (Render)"},
         )
 
-        # Si Cloudflare / blocage / autre statut
         if r.status_code != 200:
-            print(f"[API] Status not OK: {r.status_code} - {r.text[:120]}")
             return None
 
-        # Si l'API renvoie une page HTML au lieu de JSON (Cloudflare)
         ctype = r.headers.get("Content-Type", "")
         if "application/json" not in ctype:
-            print(f"[API] Unexpected content-type: {ctype}")
-            print(r.text[:200])
             return None
 
         data = r.json()["results"][0]
+
+        name = (data.get("character_name") or "").strip()
+        anime = (data.get("anime_name") or "").strip()
+
         return {
-            "name": data.get("character_name") or "Inconnu",
-            "anime": data.get("anime_name") or "Inconnu",
+            "name": name,      # peut être ""
+            "anime": anime,    # peut être ""
             "image": data["url"]
         }
 
     except Exception as e:
         print("[API] ERROR:", repr(e))
         return None
+
+def format_line(c: dict) -> str:
+    """
+    Formate proprement un perso même si nom/anime manquent.
+    - Nom + anime si dispo
+    - Sinon juste nom
+    - Sinon juste anime
+    - Sinon "Perso mystère"
+    """
+    name = (c.get("name") or "").strip()
+    anime = (c.get("anime") or "").strip()
+
+    if name and anime:
+        return f"**{name}**\n*{anime}*"
+    if name:
+        return f"**{name}**"
+    if anime:
+        return f"*{anime}*"
+    return "🎲 **Perso mystère**"
 
 @bot.tree.command(name="kmk", description="Kiss / Marry / Kill avec des persos d'animé")
 async def kmk(interaction: discord.Interaction):
@@ -82,21 +97,9 @@ async def kmk(interaction: discord.Interaction):
         color=0xff5fa2
     )
 
-    embed.add_field(
-        name="💋 Kiss",
-        value=f"**{kiss['name']}**\n*{kiss['anime']}*",
-        inline=True
-    )
-    embed.add_field(
-        name="💍 Marry",
-        value=f"**{marry['name']}**\n*{marry['anime']}*",
-        inline=True
-    )
-    embed.add_field(
-        name="🔪 Kill",
-        value=f"**{kill['name']}**\n*{kill['anime']}*",
-        inline=True
-    )
+    embed.add_field(name="💋 Kiss", value=format_line(kiss), inline=True)
+    embed.add_field(name="💍 Marry", value=format_line(marry), inline=True)
+    embed.add_field(name="🔪 Kill", value=format_line(kill), inline=True)
 
     embed.set_image(url=kiss["image"])
     embed.set_thumbnail(url=marry["image"])
