@@ -27,18 +27,54 @@ class MyBot(commands.Bot):
 bot = MyBot()
 
 def get_character():
-    data = requests.get(API_URL).json()["results"][0]
-    return {
-        "name": data["character_name"],
-        "anime": data["anime_name"],
-        "image": data["url"]
-    }
+    """
+    Retourne un dict {name, anime, image} ou None si l'API échoue / est bloquée.
+    """
+    try:
+        r = requests.get(
+            API_URL,
+            timeout=6,
+            headers={"User-Agent": "DiscordBot KMK (Render)"},
+        )
+
+        # Si Cloudflare / blocage / autre statut
+        if r.status_code != 200:
+            print(f"[API] Status not OK: {r.status_code} - {r.text[:120]}")
+            return None
+
+        # Si l'API renvoie une page HTML au lieu de JSON (Cloudflare)
+        ctype = r.headers.get("Content-Type", "")
+        if "application/json" not in ctype:
+            print(f"[API] Unexpected content-type: {ctype}")
+            print(r.text[:200])
+            return None
+
+        data = r.json()["results"][0]
+        return {
+            "name": data.get("character_name") or "Inconnu",
+            "anime": data.get("anime_name") or "Inconnu",
+            "image": data["url"]
+        }
+
+    except Exception as e:
+        print("[API] ERROR:", repr(e))
+        return None
 
 @bot.tree.command(name="kmk", description="Kiss / Marry / Kill avec des persos d'animé")
 async def kmk(interaction: discord.Interaction):
+    # ✅ Anti-timeout Discord (3s)
+    await interaction.response.defer()
+
     kiss = get_character()
     marry = get_character()
     kill = get_character()
+
+    # ✅ Si l'API est bloquée / lente / KO, on répond quand même
+    if not kiss or not marry or not kill:
+        await interaction.followup.send(
+            "❌ Je n’arrive pas à récupérer des persos (API bloquée/instable). Réessaie dans 1-2 minutes 🙏"
+        )
+        return
 
     embed = discord.Embed(
         title="💋💍🔪 Kiss / Marry / Kill",
@@ -66,7 +102,8 @@ async def kmk(interaction: discord.Interaction):
     embed.set_thumbnail(url=marry["image"])
     embed.set_footer(text="🔪 en dernier")
 
-    await interaction.response.send_message(embed=embed)
+    # ✅ Après defer() -> followup
+    await interaction.followup.send(embed=embed)
 
     msg = await interaction.original_response()
     for emoji in REACTIONS:
