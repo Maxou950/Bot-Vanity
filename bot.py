@@ -69,13 +69,6 @@ def get_character():
 
 
 def format_line(c: dict) -> str:
-    """
-    Affichage propre :
-    - Nom + anime si dispo
-    - Sinon juste nom
-    - Sinon juste anime
-    - Sinon 'Perso mystère' (sans spam d'Inconnu)
-    """
     name = (c.get("name") or "").strip()
     anime = (c.get("anime") or "").strip()
 
@@ -85,7 +78,9 @@ def format_line(c: dict) -> str:
         return f"**{name}**"
     if anime:
         return f"*{anime}*"
-    return "🎲 Perso mystère"
+
+    # Rien du tout si l'API ne fournit pas de nom
+    return "‎"  # caractère invisible Unicode
 
 
 @bot.tree.command(name="kmk", description="Kiss / Marry / Kill avec des persos d'animé")
