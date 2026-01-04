@@ -1,9 +1,6 @@
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
-
-TOKEN = os.getenv("DISCORD_TOKEN")
+TOKEN = os.environ.get("DISCORD_TOKEN")
 
 REACTIONS = {
     "💋": "Kiss",
