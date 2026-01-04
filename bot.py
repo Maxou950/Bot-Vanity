@@ -1,27 +1,44 @@
 import discord
 from discord.ext import commands
+from discord import app_commands
 import requests
-from config import TOKEN, REACTIONS, WAIFU_API
+import os
+
+TOKEN = os.getenv("DISCORD_TOKEN")
+
+REACTIONS = {
+    "💋": "Kiss",
+    "💍": "Marry",
+    "🔪": "Kill"
+}
+
+API_URL = "https://nekos.best/api/v2/neko"
 
 intents = discord.Intents.default()
-intents.message_content = True
 intents.members = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+class MyBot(commands.Bot):
+    def __init__(self):
+        super().__init__(command_prefix=None, intents=intents)
 
-def get_random_anime():
-    response = requests.get(WAIFU_API)
-    return response.json()["url"]
+    async def setup_hook(self):
+        await self.tree.sync()
 
-@bot.event
-async def on_ready():
-    print(f"✅ Bot connecté : {bot.user}")
+bot = MyBot()
 
-@bot.command()
-async def kmk(ctx):
-    kiss = get_random_anime()
-    marry = get_random_anime()
-    kill = get_random_anime()
+def get_character():
+    data = requests.get(API_URL).json()["results"][0]
+    return {
+        "name": data["character_name"],
+        "anime": data["anime_name"],
+        "image": data["url"]
+    }
+
+@bot.tree.command(name="kmk", description="Kiss / Marry / Kill avec des persos d'animé")
+async def kmk(interaction: discord.Interaction):
+    kiss = get_character()
+    marry = get_character()
+    kill = get_character()
 
     embed = discord.Embed(
         title="💋💍🔪 Kiss / Marry / Kill",
@@ -29,19 +46,31 @@ async def kmk(ctx):
         color=0xff5fa2
     )
 
-    embed.add_field(name="💋 Kiss", value="\u200b", inline=True)
-    embed.add_field(name="💍 Marry", value="\u200b", inline=True)
-    embed.add_field(name="🔪 Kill", value="\u200b", inline=True)
+    embed.add_field(
+        name="💋 Kiss",
+        value=f"**{kiss['name']}**\n*{kiss['anime']}*",
+        inline=True
+    )
+    embed.add_field(
+        name="💍 Marry",
+        value=f"**{marry['name']}**\n*{marry['anime']}*",
+        inline=True
+    )
+    embed.add_field(
+        name="🔪 Kill",
+        value=f"**{kill['name']}**\n*{kill['anime']}*",
+        inline=True
+    )
 
-    embed.set_image(url=kiss)
-    embed.set_thumbnail(url=marry)
-    embed.set_footer(text="🔪 en dernier message")
+    embed.set_image(url=kiss["image"])
+    embed.set_thumbnail(url=marry["image"])
+    embed.set_footer(text="🔪 en dernier")
 
-    msg1 = await ctx.send(embed=embed)
-    await ctx.send(kill)
+    await interaction.response.send_message(embed=embed)
 
+    msg = await interaction.original_response()
     for emoji in REACTIONS:
-        await msg1.add_reaction(emoji)
+        await msg.add_reaction(emoji)
 
 @bot.event
 async def on_reaction_add(reaction, user):
